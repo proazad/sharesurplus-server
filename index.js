@@ -2,11 +2,11 @@ const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser")
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const port = process.env.PORT || 5000;
 require('dotenv').config();
 const app = express();
-app.use(cors());
+app.use(cors({ origin: ["http://localhost:5173"], credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
@@ -22,7 +22,20 @@ const client = new MongoClient(uri, {
         deprecationErrors: true,
     }
 });
-
+// Middleware 
+const verifyToken = (req, res, next) => {
+    const token = req.cookies?.token;
+    if (!token) {
+        return res.status(401).send({ message: "Unauthorized Access" });
+    }
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decode) => {
+        if (err) {
+            return res.status(401).send({ message: "Unauthorized Access" });
+        }
+        req.user = decode;
+        next();
+    });
+}
 
 async function run() {
     try {
@@ -31,12 +44,29 @@ async function run() {
         // Send a ping to confirm a successful connection
         const foodCollection = client.db("shareSurplus").collection("foodsCollection");
         const foodRequestCollection = client.db("shareSurplus").collection("foodRequestCollection");
-
+        // Auth Related API 
+        app.post("/jwt", async (req, res) => {
+            const user = req.body;
+            const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1h" });
+            res.cookie("token", token, {
+                httpOnly: true,
+                secure: true,
+                sameSite: "none"
+            })
+                .send({ success: true });
+        });
+        app.post("/logout", async (req, res) => {
+            const user = req.body;
+            res.clearCookie("token", { maxAge: 0 }).send({ success: true });
+        });
 
         //  * Services Related API 
         //  * add Foods
 
         app.post("/foods", async (req, res) => {
+            if (req.user?.email) {
+                res.status(403).send({ message: "Access forbbiden" });
+            }
             const food = req.body;
             const result = await foodCollection.insertOne(food);
             res.send(result);
@@ -44,21 +74,38 @@ async function run() {
 
         // get all Foods 
         app.get("/foods", async (req, res) => {
-            const cursot = foodCollection.find();
-            const result = await cursot.toArray();
+            const cursor = foodCollection.find();
+            const result = await cursor.toArray();
+            res.send(result);
+        });
+        // get my all Foods 
+        app.get("/myfoods", verifyToken, async (req, res) => {
+            if (req.query?.email !== req.user?.email) {
+                res.status(403).send({ message: "Access forbbiden" });
+            }
+            let filter = {}
+            if (req.query?.email) {
+                filter = { donoremail: req.query?.email }
+            }
+            // console.log(filter);
+            const cursor = foodCollection.find(filter);
+            const result = await cursor.toArray();
             res.send(result);
         });
 
-        // get personal Foods 
-        app.get("/foods", verifyToken, async (req, res) => {
-            let query = {};
-            if (req.user.email !== req.query.email) {
-                return res.status(403).send("Access Forbbiden");
-            }
-            if (req.query?.email) {
-                query = { email: req.query.email }
-            }
-        });
+        // Get Single Food 
+        app.get("/foods/:id", async (req, res) => {
+            const id = req.params.id;
+            console.log(id);
+            const query = { _id: new ObjectId(id) };
+            const result = await foodCollection.findOne(query);
+            console.log(result);
+            res.send(result);
+        })
+
+
+        
+
 
         await client.db("admin").command({ ping: 1 });
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
