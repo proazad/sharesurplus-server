@@ -64,9 +64,6 @@ async function run() {
         //  * add Foods
 
         app.post("/foods", async (req, res) => {
-            if (req.user?.email) {
-                res.status(403).send({ message: "Access forbbiden" });
-            }
             const food = req.body;
             const result = await foodCollection.insertOne(food);
             res.send(result);
@@ -104,7 +101,25 @@ async function run() {
         })
 
 
-        
+        // Food Request Api 
+        app.post("/rqFoods", async (req, res) => {
+            const food = req.body;
+            res.send(await foodRequestCollection.insertOne(food));
+        });
+
+        // Get my Food Request 
+        app.get("/rqFoods", verifyToken, async (req, res) => {
+            if (req.query?.email !== req.user?.email) {
+                res.status(403).send({ message: "Access forbbiden" });
+            }
+            let filter = {}
+            if (req.query?.email) {
+                filter = { useremail: req.query?.email }
+            }
+            const cursor = foodRequestCollection.find(filter);
+            const result = await cursor.toArray();
+            res.send(result);
+        });
 
 
         await client.db("admin").command({ ping: 1 });
