@@ -52,7 +52,7 @@ async function run() {
     const foodRequestCollection = client
       .db("shareSurplus")
       .collection("foodRequestCollection");
-      
+
     // Auth Related API
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -127,6 +127,25 @@ async function run() {
       const result = await foodCollection.findOne(query);
       res.send(result);
     });
+
+    // Update Foods 
+    app.patch("/foodupdate/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const food = req.body;
+      const options = { upsert: true };
+      const updateproduct = {
+        $set: {
+          foodname: food.foodname,
+          foodimage: food.foodimage,
+          foodquantity: food.foodquantity,
+          expiredate: food.expiredate,
+          pickuplocation: food.pickuplocation,
+          additionalnotes: food.additionalnotes
+        },
+      };
+      res.send(await foodCollection.updateOne(query, updateproduct, options));
+    })
 
     // Food Request Api
     app.post("/rqFoods", async (req, res) => {
