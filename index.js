@@ -147,6 +147,13 @@ async function run() {
       res.send(await foodCollection.updateOne(query, updateproduct, options));
     })
 
+    // Foods Delete 
+    app.delete("/foods/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await foodCollection.deleteOne(query);
+      res.send(result);
+    });
     // Food Request Api
     app.post("/rqFoods", async (req, res) => {
       const food = req.body;
