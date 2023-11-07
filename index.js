@@ -6,7 +6,7 @@ const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const port = process.env.PORT || 5000;
 require('dotenv').config();
 const app = express();
-app.use(cors({ origin: ["http://localhost:5173"], credentials: true }));
+app.use(cors({ origin: ["https://sharesurplus-server-5e77lmrtk-azadhossain7595-gmailcom.vercel.app"], credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
 
@@ -43,6 +43,7 @@ async function run() {
         await client.connect();
         // Send a ping to confirm a successful connection
         const foodCollection = client.db("shareSurplus").collection("foodsCollection");
+        const userCollection = client.db("shareSurplus").collection("user");
         const foodRequestCollection = client.db("shareSurplus").collection("foodRequestCollection");
         // Auth Related API 
         app.post("/jwt", async (req, res) => {
@@ -50,7 +51,7 @@ async function run() {
             const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: "1h" });
             res.cookie("token", token, {
                 httpOnly: true,
-                secure: true,
+                secure: false,
                 sameSite: "none"
             })
                 .send({ success: true });
@@ -61,6 +62,20 @@ async function run() {
         });
 
         //  * Services Related API 
+        //  * add User
+        app.post("/users", async (req, res) => {
+            const food = req.body;
+            const result = await userCollection.insertOne(food);
+            res.send(result);
+        });
+
+        // get all Foods 
+        app.get("/users", async (req, res) => {
+            const cursor = userCollection.find();
+            const result = await cursor.toArray();
+            res.send(result);
+        });
+
         //  * add Foods
 
         app.post("/foods", async (req, res) => {
@@ -88,7 +103,6 @@ async function run() {
             if (req.query?.email) {
                 filter = { donoremail: req.query?.email }
             }
-            // console.log(filter);
             const cursor = foodCollection.find(filter);
             const result = await cursor.toArray();
             res.send(result);
@@ -97,10 +111,8 @@ async function run() {
         // Get Single Food 
         app.get("/foods/:id", async (req, res) => {
             const id = req.params.id;
-            console.log(id);
             const query = { _id: new ObjectId(id) };
             const result = await foodCollection.findOne(query);
-            console.log(result);
             res.send(result);
         })
 
