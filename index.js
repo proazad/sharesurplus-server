@@ -48,6 +48,7 @@ async function run() {
     const foodCollection = client
       .db("shareSurplus")
       .collection("foodsCollection");
+
     const userCollection = client.db("shareSurplus").collection("user");
     const foodRequestCollection = client
       .db("shareSurplus")
@@ -141,10 +142,33 @@ async function run() {
           foodquantity: food.foodquantity,
           expiredate: food.expiredate,
           pickuplocation: food.pickuplocation,
-          additionalnotes: food.additionalnotes
+          additionalnotes: food.additionalnotes,
+          foodstatus: food.foodstatus
         },
       };
       res.send(await foodCollection.updateOne(query, updateproduct, options));
+    })
+
+    app.patch("/foodstatus/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+        const query = { _id: new ObjectId(id) };
+        const food = req.body;
+        const updateproduct = {
+          $set: {
+            foodstatus: food.foodstatus,
+          },
+        };
+        const result = await foodCollection.updateOne(query, updateproduct);
+        if (result.matchedCount === 0) {
+          res.status(404).send("Document not found");
+        } else {
+          res.status(200).send({ success: true });
+        }
+      } catch (error) {
+        console.error("Error updating document:", error);
+        res.status(500).send("Internal Server Error");
+      }
     })
 
     // Foods Delete 
@@ -154,10 +178,19 @@ async function run() {
       const result = await foodCollection.deleteOne(query);
       res.send(result);
     });
+
     // Food Request Api
     app.post("/rqFoods", async (req, res) => {
       const food = req.body;
       res.send(await foodRequestCollection.insertOne(food));
+    });
+
+    // Get Single Request Food
+    app.get("/rqFoods/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { foodid: id };
+      const result = await foodRequestCollection.findOne(query);
+      res.send(result);
     });
 
     // Get my Food Request
@@ -173,7 +206,28 @@ async function run() {
       const result = await cursor.toArray();
       res.send(result);
     });
-
+    // Update 
+    // app.patch("/reqfoodstatus/:id", async (req, res) => {
+    //   try {
+    //     const id = req.params.id;
+    //     const query = { foodid: id };
+    //     const food = req.body;
+    //     const updateproduct = {
+    //       $set: {
+    //         foodstatus: food.foodstatus,
+    //       },
+    //     };
+    //     const result = await foodCollection.updateOne(query, updateproduct);
+    //     if (result.matchedCount === 0) {
+    //       res.status(404).send("Document not found");
+    //     } else {
+    //       res.status(200).send(result);
+    //     }
+    //   } catch (error) {
+    //     console.error("Error updating document:", error);
+    //     res.status(500).send("Internal Server Error");
+    //   }
+    // })
     // Delete Food Request
     app.delete("/rqFoods/:id", async (req, res) => {
       const id = req.params.id;
